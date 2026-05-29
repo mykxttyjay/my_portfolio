@@ -28,8 +28,8 @@ export interface Contact {
   id: string;
   slug: string | null;
   status: string;
-  email?: string;
-  resume_link?: string;
+  date: string;
+  display_order?: number;
   createdAt: Date;
   updatedAt: Date;
   publishedAt: Date | null;
@@ -40,10 +40,10 @@ export interface Experience {
   id: string;
   slug: string | null;
   status: string;
+  tags?: unknown;
+  display_order?: number;
   title: string;
   company: string;
-  date: string;
-  display_order?: number;
   createdAt: Date;
   updatedAt: Date;
   publishedAt: Date | null;
@@ -74,8 +74,8 @@ export interface Project {
   thumbnail_alt?: string;
   link?: string;
   icon?: string;
-  tags?: unknown;
-  display_order?: number;
+  email?: string;
+  resume_link?: string;
   createdAt: Date;
   updatedAt: Date;
   publishedAt: Date | null;
