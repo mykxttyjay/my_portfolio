@@ -1,5 +1,6 @@
 # build output
 dist/
+.vercel/
 
 # generated types
 .astro/
@@ -16,21 +17,19 @@ pnpm-debug.log*
 # environment variables
 .env
 .env.production
+.env.local
 
-# macOS-specific files
+# editor / OS
 .DS_Store
-
-# jetbrains setting folder
 .idea/
+.vscode/
 
-
-
-# Wrangler/Cloudflare Workers files
+# Cloudflare leftovers (not used on Vercel)
 .wrangler/
 wrangler.jsonc
 wrangler.json
 
-# EmDash database & uploads
+# EmDash database & uploads (local dev only — Vercel uses Turso + R2)
 data.db
 data.db-journal
 data.db-shm

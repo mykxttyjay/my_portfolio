@@ -1,8 +1,16 @@
 .git
 .gitignore
 README.md
+.env
 .env.local
 .env.*.local
 .vscode
+.cursor
+.claude
 bun.lock
-
+data.db
+data.db-journal
+data.db-shm
+data.db-wal
+uploads/
+my_portfolio.git/

@@ -9,25 +9,28 @@
     "seed": "./seed/seed.json"
   },
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "start": "node server.js",
-    "prestart": "npm run bootstrap",
+    "dev": "node scripts/bootstrap.mjs && astro dev",
+    "build": "node scripts/bootstrap.mjs && astro build",
+    "preview": "astro preview",
+    "vercel-build": "node scripts/bootstrap.mjs && astro build",
     "bootstrap": "node scripts/bootstrap.mjs",
     "seed": "emdash seed",
     "astro": "astro"
   },
   "dependencies": {
-    "@astrojs/cloudflare": "^13.5.5",
-    "@astrojs/node": "^10.1.1",
     "@astrojs/react": "^5.0.5",
-    "@emdash-cms/cloudflare": "^0.14.0",
+    "@astrojs/vercel": "^10.0.8",
+    "@aws-sdk/client-s3": "^3.0.0",
+    "@aws-sdk/s3-request-presigner": "^3.0.0",
     "@fontsource/dancing-script": "^5.2.8",
+    "@libsql/client": "^0.17.0",
+    "@libsql/kysely-libsql": "^0.4.0",
     "astro": "^6.3.7",
     "better-sqlite3": "^12.10.0",
     "emdash": "^0.14.0",
     "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "react-dom": "^19.2.6",
+    "ulidx": "^2.4.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.0",
