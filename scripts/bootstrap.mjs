@@ -5,20 +5,40 @@
  * seeds collections) and ensures the About Me row references the bundled
  * `/profile.jpg` as a sensible default photo.
  *
- * Works in two modes:
+ * Two execution paths:
  *
- * - Local / Render (default): plain SQLite file on disk.
- * - Vercel / Turso: remote libSQL via `TURSO_DATABASE_URL` +
- *   `TURSO_AUTH_TOKEN`. The CLI runs against the remote DB; we touch the
- *   `ec_about_me` row over the libSQL HTTP client.
+ * - Local development / Render: SQLite file on disk. Uses the `emdash`
+ *   CLI which is the documented happy-path.
+ * - Vercel / Turso: remote libSQL via TURSO_DATABASE_URL +
+ *   TURSO_AUTH_TOKEN. The CLI does not yet support libSQL URLs, so we
+ *   call EmDash's public `runMigrations` and `applySeed` APIs directly
+ *   against a Kysely instance bound to LibsqlDialect.
  */
 
 import { execSync } from 'node:child_process';
-import { existsSync, unlinkSync } from 'node:fs';
+import { existsSync, unlinkSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import url from 'node:url';
 import { ulid } from 'ulidx';
 
+const __filename = url.fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const projectRoot = path.resolve(__dirname, '..');
+const seedPath = path.join(projectRoot, 'seed', 'seed.json');
+
 const useTurso = !!process.env.TURSO_DATABASE_URL;
+const isVercelBuild = process.env.VERCEL === '1' || process.env.VERCEL_ENV;
+
+if (isVercelBuild && !useTurso) {
+  console.error(
+    '\n[bootstrap] ERROR: Building on Vercel without a remote database.\n' +
+      '  Vercel functions cannot use a local SQLite file (the filesystem\n' +
+      '  is read-only at request time). Set TURSO_DATABASE_URL and\n' +
+      '  TURSO_AUTH_TOKEN in the Vercel project Environment Variables\n' +
+      '  panel. See .env.example for the full list.\n'
+  );
+  process.exit(1);
+}
 
 if (useTurso) {
   await bootstrapTurso();
@@ -64,7 +84,6 @@ function ensureDefaultProfilePhotoLocal({ Database, dbPath, uploadsDir }) {
     if (!row) return;
 
     const removedMediaIds = cleanupLegacyDuplicateLocal(db, uploadsDir);
-
     const current = parseJsonOrNull(row.photo);
 
     let pointsAtMissingMedia = false;
@@ -79,9 +98,6 @@ function ensureDefaultProfilePhotoLocal({ Database, dbPath, uploadsDir }) {
         if (!existsSync(onDisk)) {
           pointsAtMissingMedia = true;
           db.prepare('DELETE FROM media WHERE id = ?').run(current.id);
-          console.log(
-            `[bootstrap] Removed orphan media row ${current.id} (file missing on disk)`
-          );
         }
       }
     }
@@ -98,16 +114,17 @@ function ensureDefaultProfilePhotoLocal({ Database, dbPath, uploadsDir }) {
     ) {
       return; // Real user upload – do not overwrite.
     }
-
     if (current && current.src === '/profile.jpg' && !referencesRemoved) {
-      return; // Already pointed at the default.
+      return;
     }
 
-    const photoValue = JSON.stringify(buildDefaultPhotoValue());
     db.prepare(
       'UPDATE ec_about_me SET photo = ?, updated_at = ? WHERE id = ?'
-    ).run(photoValue, new Date().toISOString(), row.id);
-
+    ).run(
+      JSON.stringify(buildDefaultPhotoValue()),
+      new Date().toISOString(),
+      row.id
+    );
     console.log(
       '[bootstrap] Set About Me photo default to /profile.jpg (external reference)'
     );
@@ -139,83 +156,101 @@ function cleanupLegacyDuplicateLocal(db, uploadsDir) {
     db.prepare('DELETE FROM media WHERE id = ?').run(item.id);
     removed.add(item.id);
   }
-  console.log(
-    `[bootstrap] Removed ${orphans.length} duplicated profile.jpg upload(s) from media library`
-  );
   return removed;
 }
 
 // ---------------------------------------------------------------------------
 // Turso / libSQL (Vercel)
+//
+// EmDash's CLI does not yet support libSQL URLs (it always opens a local
+// SQLite file). We bypass the CLI and use the documented programmatic API:
+//
+//   runMigrations(db)              from "emdash/db"
+//   applySeed(db, seed, options)   from "emdash/seed"
+//
+// where `db` is a Kysely instance backed by `LibsqlDialect` (the same
+// dialect EmDash itself uses at runtime).
 // ---------------------------------------------------------------------------
 
 async function bootstrapTurso() {
-  // The CLI talks to a `--database` URL; libsql:// works directly.
-  const dbUrl = process.env.TURSO_DATABASE_URL;
-  const authToken = process.env.TURSO_AUTH_TOKEN;
-
   console.log('[bootstrap] Using Turso/libSQL database');
 
-  // EmDash's CLI accepts file URLs and libsql URLs. We pass through the
-  // libsql:// URL plus auth token via env variables it understands.
-  const env = { ...process.env, LIBSQL_URL: dbUrl, LIBSQL_AUTH_TOKEN: authToken };
+  const { Kysely } = await import('kysely');
+  const { LibsqlDialect } = await import('@libsql/kysely-libsql');
+  const { runMigrations } = await import('emdash/db');
+  const { applySeed } = await import('emdash/seed');
+
+  const db = new Kysely({
+    dialect: new LibsqlDialect({
+      url: process.env.TURSO_DATABASE_URL,
+      authToken: process.env.TURSO_AUTH_TOKEN,
+    }),
+  });
 
   try {
-    execSync(`npx emdash init --database ${dbUrl}`, { stdio: 'inherit', env });
-  } catch (err) {
-    // `init` is idempotent — fall through if the schema already exists.
-    console.warn('[bootstrap] emdash init reported an issue (continuing):', err.message);
-  }
+    console.log('[bootstrap] Running migrations on Turso...');
+    const { applied } = await runMigrations(db);
+    console.log(
+      applied.length > 0
+        ? `[bootstrap] Applied ${applied.length} migrations`
+        : '[bootstrap] Database already up to date'
+    );
 
-  try {
-    execSync(`npx emdash seed --database ${dbUrl} --on-conflict update`, {
-      stdio: 'inherit',
-      env,
+    console.log('[bootstrap] Applying seed file...');
+    const seed = JSON.parse(readFileSync(seedPath, 'utf8'));
+    const result = await applySeed(db, seed, {
+      includeContent: true,
+      onConflict: 'skip',
     });
-  } catch (err) {
-    console.warn('[bootstrap] emdash seed reported an issue (continuing):', err.message);
-  }
+    console.log(
+      `[bootstrap] Seed applied: collections=${JSON.stringify(result.collections)} fields=${JSON.stringify(result.fields)}`
+    );
 
-  await ensureDefaultProfilePhotoTurso({ url: dbUrl, authToken });
+    await ensureDefaultProfilePhotoTurso(db);
+  } finally {
+    await db.destroy();
+  }
 }
 
-async function ensureDefaultProfilePhotoTurso({ url, authToken }) {
-  const { createClient } = await import('@libsql/client');
-  const client = createClient({ url, authToken });
+async function ensureDefaultProfilePhotoTurso(db) {
+  const { sql } = await import('kysely');
 
+  // Confirm the about_me table exists before touching it.
   try {
-    const aboutTable = await client.execute(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='ec_about_me'"
-    );
-    if (aboutTable.rows.length === 0) return;
-
-    const result = await client.execute(
-      "SELECT id, photo FROM ec_about_me WHERE slug='main' LIMIT 1"
-    );
-    const row = result.rows[0];
-    if (!row) return;
-
-    const current = parseJsonOrNull(row.photo);
-
-    if (current && current.provider && current.provider !== 'external') {
-      return; // Real user upload — leave it alone.
+    const tables = await sql`
+      SELECT name FROM sqlite_master WHERE type='table' AND name='ec_about_me'
+    `.execute(db);
+    if (tables.rows.length === 0) {
+      console.warn(
+        '[bootstrap] ec_about_me not found yet, skipping default photo wiring'
+      );
+      return;
     }
-    if (current && current.src === '/profile.jpg') {
-      return; // Already correct.
-    }
-
-    const photoValue = JSON.stringify(buildDefaultPhotoValue());
-    await client.execute({
-      sql: 'UPDATE ec_about_me SET photo = ?, updated_at = ? WHERE id = ?',
-      args: [photoValue, new Date().toISOString(), row.id],
-    });
-
-    console.log(
-      '[bootstrap] Set About Me photo default to /profile.jpg (Turso)'
+  } catch (err) {
+    console.warn(
+      '[bootstrap] Could not check for ec_about_me, skipping default photo wiring:',
+      err.message
     );
-  } finally {
-    client.close();
+    return;
   }
+
+  const result = await sql`
+    SELECT id, photo FROM ec_about_me WHERE slug='main' LIMIT 1
+  `.execute(db);
+  const row = result.rows[0];
+  if (!row) return;
+
+  const current = parseJsonOrNull(row.photo);
+  if (current && current.provider && current.provider !== 'external') return;
+  if (current && current.src === '/profile.jpg') return;
+
+  await sql`
+    UPDATE ec_about_me
+    SET photo = ${JSON.stringify(buildDefaultPhotoValue())},
+        updated_at = ${new Date().toISOString()}
+    WHERE id = ${row.id}
+  `.execute(db);
+  console.log('[bootstrap] Set About Me photo default to /profile.jpg (Turso)');
 }
 
 // ---------------------------------------------------------------------------
