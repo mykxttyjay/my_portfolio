@@ -1,4 +1,4 @@
-import { defineConfig } from 'astro/config';
+import { defineConfig, sessionDrivers } from 'astro/config';
 import vercel from '@astrojs/vercel';
 import react from '@astrojs/react';
 import tailwindcss from '@tailwindcss/vite';
@@ -52,6 +52,13 @@ export default defineConfig({
     webAnalytics: { enabled: false },
     maxDuration: 30,
   }),
+
+  // Session configuration for Vercel
+  session: {
+    driver: sessionDrivers.lruCache({
+      max: 800,
+    }),
+  },
 
   server: {
     host: true,
