@@ -185,3 +185,21 @@ This portfolio is optimized for **Vercel** deployment with **Turso** database:
 - Best content management experience is via local development
 
 **Alternative:** For a simpler setup with persistent local storage, consider deploying to Render with a Persistent Disk (see git history for Render configuration).
+
+## Final Recommendation
+
+**For a simple static Astro portfolio (no CMS):**
+→ Use **Vercel** or **Netlify**
+- Reason: Static sites are just HTML/CSS/JS, so serverless CDN deployment is fastest, easiest, and free.
+
+**For Astro + EmDash CMS (this project):**
+→ Use **Vercel + Turso + Cloudflare R2**
+- Reason: Vercel's serverless platform works great with remote database (Turso) and cloud storage (R2). Both have generous free tiers.
+- Trade-off: Sessions may expire occasionally, and you'll need to set up external services.
+
+**Alternative for EmDash CMS:**
+→ Use **Render with Persistent Disk**
+- Reason: Traditional server with writable filesystem keeps SQLite database and uploads in one place. Simpler setup, no external services needed.
+- Trade-off: Slower cold starts, paid plan required for persistent disk ($7/month).
+
+**Bottom line:** This portfolio successfully runs on Vercel + Turso, proving that EmDash CMS can work on serverless platforms with the right configuration. Choose based on your preference for simplicity (Render) vs. performance and free tier (Vercel).
