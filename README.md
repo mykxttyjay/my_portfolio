@@ -1,6 +1,8 @@
 # Personal Portfolio — Astro + EmDash CMS
 
-Personal portfolio with a vintage letter / postal theme. Built with Astro and managed through [EmDash CMS](https://emdashcms.com/), backed by SQLite. Deployed on [Render](https://render.com).
+Personal portfolio with a vintage letter / postal theme. Built with Astro and managed through [EmDash CMS](https://emdashcms.com/). Deployed on [Vercel](https://vercel.com) with [Turso](https://turso.tech) database.
+
+**Live Site**: https://angelmarie.vercel.app
 
 ## Sections
 
@@ -13,21 +15,26 @@ Personal portfolio with a vintage letter / postal theme. Built with Astro and ma
 
 ## Tech Stack
 
-- **Astro 6** with `@astrojs/node` (standalone server)
-- **EmDash 0.14** for the CMS, with SQLite storage
+- **Astro 6** with `@astrojs/vercel` adapter
+- **EmDash 0.14** for the CMS
+- **Turso (libSQL)** for database storage
+- **Vercel** for serverless deployment
 - **Fonts**: Playfair Display (Google Fonts) and Dancing Script (`@fontsource/dancing-script`)
 - **Icons**: Font Awesome 6.5
 
 ## Getting Started
 
+### Local Development
+
 ```bash
 npm install
-npm run bootstrap      # init DB, apply seed, wire default About Me photo
 npm run dev
 ```
 
 - Site: `http://localhost:4321`
 - Admin: `http://localhost:4321/_emdash/admin` (first visit prompts you to create an account)
+
+Local development uses SQLite (`data.db`) and local file uploads (`uploads/`). These are automatically created and managed by EmDash.
 
 ## Content Management
 
@@ -58,24 +65,74 @@ Each project card uses the uploaded **Thumbnail Image** when present. If none is
    ```
 4. Use the field in the relevant Astro component.
 
-## Deployment (Render)
+## Deployment (Vercel)
 
-This site runs as a Node web service with a Persistent Disk for the SQLite database and uploads.
+This portfolio is deployed on Vercel with Turso (libSQL) for database storage. Vercel's serverless functions are read-only, so we use a remote database instead of local SQLite.
 
-1. Create a Web Service from this repo.
-2. **Build Command**: `npm install && npm run build`
-3. **Start Command**: `npm start` (runs `npm run bootstrap` automatically)
-4. Add a Persistent Disk and set the mount path (e.g. `/var/data`).
-5. Set environment variables:
-   - `PERSISTENT_STORAGE_DIR` = the mount path
-   - `NODE_VERSION` = `22.12.0` (matches `.node-version`)
+### Prerequisites
 
-`data.db` and `uploads/` will live inside `PERSISTENT_STORAGE_DIR` and survive every redeploy.
+1. **Turso Account**: Sign up at [turso.tech](https://turso.tech)
+2. **Vercel Account**: Sign up at [vercel.com](https://vercel.com)
+3. **GitHub Repository**: Push your code to GitHub
 
-After a schema change, run on the Render shell:
+### Setup Steps
+
+#### 1. Create Turso Database
+
 ```bash
-npx emdash seed --on-conflict update
+# Via Turso Dashboard (easiest for Windows)
+# 1. Go to https://turso.tech
+# 2. Create a new database (e.g., "my-portfolio-db")
+# 3. Copy the Database URL (libsql://...)
+# 4. Create a token and copy it
 ```
+
+#### 2. Deploy to Vercel
+
+1. Go to [vercel.com/new](https://vercel.com/new)
+2. Import your GitHub repository
+3. Vercel will auto-detect Astro
+4. **Before deploying**, add these environment variables:
+
+| Variable | Value | Required |
+|---|---|---|
+| `SITE_URL` | `https://your-domain.vercel.app` | Yes |
+| `TURSO_DATABASE_URL` | `libsql://your-db.turso.io` | Yes |
+| `TURSO_AUTH_TOKEN` | Your Turso token | Yes |
+| `S3_ENDPOINT` | S3-compatible endpoint | Optional* |
+| `S3_BUCKET` | Bucket name | Optional* |
+| `S3_REGION` | `auto` or region | Optional* |
+| `S3_ACCESS_KEY_ID` | S3 access key | Optional* |
+| `S3_SECRET_ACCESS_KEY` | S3 secret key | Optional* |
+| `S3_PUBLIC_URL` | Public bucket URL | Optional* |
+
+*S3 variables are optional but recommended for persistent media uploads. Without them, uploaded images won't survive redeployments.
+
+5. Click **Deploy**
+
+#### 3. Access Admin Panel
+
+After deployment:
+1. Visit `https://your-domain.vercel.app/_emdash/admin`
+2. Create your admin account using passkey authentication
+3. Start managing your content!
+
+### Important Notes
+
+- **Sessions**: Due to Vercel's serverless architecture, sessions are stored in memory and may expire when functions restart (typically every 15-30 minutes of inactivity)
+- **Media Uploads**: Without S3 configuration, uploaded images are stored temporarily and will be lost on redeployment
+- **Local Admin**: For the best experience, manage content locally (`npm run dev`) and deploy changes via git push
+
+### Recommended: Cloudflare R2 for Media Storage
+
+For persistent media uploads, set up Cloudflare R2 (free tier available):
+
+1. Create an R2 bucket at [dash.cloudflare.com](https://dash.cloudflare.com)
+2. Generate API credentials with Object Read/Write permissions
+3. Add the S3 environment variables to Vercel
+4. Redeploy
+
+See [DEPLOY-VERCEL.md](./DEPLOY-VERCEL.md) for detailed instructions.
 
 ## Slack / Link Previews
 
@@ -101,24 +158,30 @@ emdash-env.d.ts       # Auto-generated EmDash types
 | Command | Action |
 |---|---|
 | `npm install` | Install dependencies |
-| `npm run bootstrap` | Init DB, apply seed, wire default photo |
 | `npm run dev` | Dev server at `localhost:4321` |
 | `npm run build` | Production build |
-| `npm start` | Start server (auto-bootstraps) |
-| `npm run seed` | Re-apply seed (skip-on-conflict) |
-| `npx emdash seed --on-conflict update` | Re-apply seed and overwrite existing rows |
+| `npm run preview` | Preview production build locally |
+| `npm run seed` | Re-apply seed to database |
+| `vercel` | Deploy to Vercel (requires Vercel CLI) |
+| `vercel --prod` | Deploy to production |
 
 ## License
 
 Open source for personal use.
 
-## Final Recommendation
+## Deployment Recommendation
 
-For a simple Astro portfolio, I recommend **Vercel**.
+This portfolio is optimized for **Vercel** deployment with **Turso** database:
 
-For Astro + EmDash CMS, I recommend **Render**.
+✅ **Pros:**
+- Free tier for both Vercel and Turso
+- Automatic deployments from GitHub
+- Global CDN for fast loading
+- Serverless architecture scales automatically
 
-Reason:
-- Static Astro = plain HTML/CSS/JS, so a serverless CDN like Vercel is fastest and free.
-- EmDash needs a writable filesystem for SQLite and media uploads, which serverless can't provide.
-- Render's Persistent Disk keeps `data.db` and `uploads/` across redeploys.
+⚠️ **Considerations:**
+- Sessions may expire due to serverless function restarts
+- Media uploads require S3-compatible storage (Cloudflare R2 recommended)
+- Best content management experience is via local development
+
+**Alternative:** For a simpler setup with persistent local storage, consider deploying to Render with a Persistent Disk (see git history for Render configuration).
