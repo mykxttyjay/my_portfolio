@@ -53,10 +53,11 @@ export default defineConfig({
     maxDuration: 30,
   }),
 
-  // Session configuration for Vercel
+  // Session configuration for Vercel - using Turso for persistence
   session: {
-    driver: sessionDrivers.lruCache({
-      max: 800,
+    driver: sessionDrivers.libSQL({
+      url: process.env.TURSO_DATABASE_URL,
+      authToken: process.env.TURSO_AUTH_TOKEN,
     }),
   },
 
