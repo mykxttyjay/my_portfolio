@@ -12,6 +12,7 @@
     "dev": "node scripts/bootstrap.mjs && astro dev",
     "build": "node scripts/bootstrap.mjs && astro build",
     "preview": "astro preview",
+    "start": "astro preview",
     "vercel-build": "node scripts/bootstrap.mjs && astro build",
     "bootstrap": "node scripts/bootstrap.mjs",
     "seed": "emdash seed",
