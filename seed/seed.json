@@ -237,6 +237,19 @@
         }
       },
       {
+        "id": "project-variable-section-cms",
+        "slug": "variable-section-cms",
+        "status": "published",
+        "data": {
+          "title": "Variable Section CMS",
+          "description": "A dynamic CMS platform with variable content sections. Features flexible layout management, content editing capabilities, and real-time updates. Built with modern web technologies for scalable content management.",
+          "link": "https://variable-section-cms.vercel.app/",
+          "icon": "cube",
+          "tags": ["Astro", "CMS", "Content Management"],
+          "display_order": 2
+        }
+      },
+      {
         "id": "project-dealer-template",
         "slug": "dealer-template",
         "status": "published",
@@ -246,7 +259,7 @@
           "link": "https://phase-3-dealertemplate.vercel.app/",
           "icon": "car",
           "tags": ["JavaScript", "HTML", "CSS"],
-          "display_order": 2
+          "display_order": 3
         }
       },
       {
@@ -259,7 +272,7 @@
           "link": "https://electrician-templatev2.vercel.app/",
           "icon": "bolt",
           "tags": ["HTML", "CSS", "JavaScript"],
-          "display_order": 3
+          "display_order": 4
         }
       },
       {
@@ -272,7 +285,7 @@
           "link": "https://hvac-templatev1.vercel.app/",
           "icon": "wind",
           "tags": ["HTML", "CSS", "JavaScript"],
-          "display_order": 4
+          "display_order": 5
         }
       },
       {
@@ -285,7 +298,7 @@
           "link": "https://plumbing-templatev1.vercel.app/",
           "icon": "droplet",
           "tags": ["HTML", "CSS", "JavaScript"],
-          "display_order": 5
+          "display_order": 6
         }
       }
     ],
